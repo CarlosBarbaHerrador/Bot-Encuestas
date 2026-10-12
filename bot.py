@@ -1,9 +1,11 @@
 import os
 import datetime
+from zoneinfo import ZoneInfo
 import discord
 from discord.ext import commands, tasks
 from http.server import HTTPServer, BaseHTTPRequestHandler
 import threading
+import sys
 
 # =========================================================
 # TOKEN
@@ -20,10 +22,9 @@ if TOKEN is None:
 
 CHANNEL_ID = 843615420417835049
 
-# Hora española (Madrid)
-SPAIN_TZ = datetime.timezone(datetime.timedelta(hours=2))
+# Hora española (Madrid) con DST automático
+SPAIN_TZ = ZoneInfo("Europe/Madrid")
 
-# 15:00 UTC = 17:00 CEST (Espana en verano)
 intents = discord.Intents.default()
 intents.message_content = True
 intents.guilds = True
@@ -111,7 +112,7 @@ async def _enviar_encuesta():
         print(f"❌ Error enviando encuesta: {e}")
 
 
-@tasks.loop(time=datetime.time(hour=15, minute=0))
+@tasks.loop(time=datetime.time(hour=17, minute=0, tzinfo=SPAIN_TZ))
 async def enviar_encuesta():
     await _enviar_encuesta()
 
@@ -122,8 +123,8 @@ async def enviar_encuesta():
 encuesta_enviada_hoy = None
 recordatorio_enviado_hoy = None
 
-# Se ejecuta exactamente a las 16:59 (hora española) = 14:59 UTC
-@tasks.loop(time=datetime.time(hour=14, minute=59))
+# Se ejecuta exactamente a las 16:59 (hora española)
+@tasks.loop(time=datetime.time(hour=16, minute=59, tzinfo=SPAIN_TZ))
 async def enviar_recordatorio():
     global recordatorio_enviado_hoy
     ahora = datetime.datetime.now(SPAIN_TZ)
@@ -230,6 +231,4 @@ try:
 except Exception as e:
     print(f"❌ Error fatal del bot: {e}")
     # El health check sigue vivo, Render no se queja del puerto
-    while True:
-        import time
-        time.sleep(60)
+    sys.exit(1)
