@@ -5,7 +5,6 @@ import discord
 from discord.ext import commands, tasks
 from http.server import HTTPServer, BaseHTTPRequestHandler
 import threading
-import sys
 
 # =========================================================
 # TOKEN
@@ -207,10 +206,22 @@ async def periodo(ctx):
 # =========================================================
 
 class HealthHandler(BaseHTTPRequestHandler):
-    def do_GET(self):
+    def _responder_ok(self):
         self.send_response(200)
+        self.send_header("Content-Type", "text/plain")
+        self.send_header("Content-Length", "2")
         self.end_headers()
-        self.wfile.write(b"OK")
+        if self.command != "HEAD":
+            self.wfile.write(b"OK")
+
+    def do_GET(self):
+        self._responder_ok()
+
+    def do_HEAD(self):
+        self._responder_ok()
+
+    def do_POST(self):
+        self._responder_ok()
 
     def log_message(self, *a, **k):
         pass  # silenciar logs
@@ -221,7 +232,7 @@ def run_health_server():
     print(f"💚 Health check server en puerto {port}")
     server.serve_forever()
 
-thread = threading.Thread(target=run_health_server, daemon=False)
+thread = threading.Thread(target=run_health_server, daemon=True)
 thread.start()
 
 print("🤖 Iniciando bot...")
@@ -229,6 +240,7 @@ print("🤖 Iniciando bot...")
 try:
     bot.run(TOKEN.strip())
 except Exception as e:
-    print(f"❌ Error fatal del bot: {e}")
-    # El health check sigue vivo, Render no se queja del puerto
-    sys.exit(1)
+    print(f"❌ Error fatal del bot: {e}", flush=True)
+    # Muerte inmediata de TODO el proceso (incluido el hilo HTTP)
+    # para que Render detecte el puerto cerrado y reinicie el contenedor
+    os._exit(1)
